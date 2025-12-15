@@ -213,51 +213,78 @@ hsl_dev_init(a_uint32_t dev_id, ssdk_init_cfg *cfg)
         case CHIP_ATHENA:
 #if defined ATHENA
             rv = athena_init(dev_id, cfg);
+#else
+            SSDK_ERROR("hsl_dev_init: CHIP_ATHENA 未编译 dev_id:%u cfg_chip_type:%d\n",
+                dev_id, cfg->chip_type);
 #endif
             break;
 
         case CHIP_GARUDA:
 #if defined GARUDA
             rv = garuda_init(dev_id, cfg);
+#else
+            SSDK_ERROR("hsl_dev_init: CHIP_GARUDA 未编译 dev_id:%u cfg_chip_type:%d\n",
+                dev_id, cfg->chip_type);
 #endif
             break;
 
         case CHIP_SHIVA:
 #if defined SHIVA
             rv = shiva_init(dev_id, cfg);
+#else
+            SSDK_ERROR("hsl_dev_init: CHIP_SHIVA 未编译 dev_id:%u cfg_chip_type:%d\n",
+                dev_id, cfg->chip_type);
 #endif
             break;
 
         case CHIP_HORUS:
 #if defined HORUS
             rv = horus_init(dev_id, cfg);
+#else
+            SSDK_ERROR("hsl_dev_init: CHIP_HORUS 未编译 dev_id:%u cfg_chip_type:%d\n",
+                dev_id, cfg->chip_type);
 #endif
             break;
 
         case CHIP_ISIS:
 #if defined ISIS
             rv = isis_init(dev_id, cfg);
+#else
+            SSDK_ERROR("hsl_dev_init: CHIP_ISIS 未编译 dev_id:%u cfg_chip_type:%d\n",
+                dev_id, cfg->chip_type);
 #endif
             break;
         case CHIP_ISISC:
 #if defined ISISC
             rv = isisc_init(dev_id, cfg);
+#else
+            SSDK_ERROR("hsl_dev_init: CHIP_ISISC 未编译 dev_id:%u cfg_chip_type:%d\n",
+                dev_id, cfg->chip_type);
 #endif
             break;
         case CHIP_MHT:
 #if defined MHT
             rv = mht_init(dev_id, cfg);
+#else
+            SSDK_ERROR("hsl_dev_init: CHIP_MHT 未编译 dev_id:%u cfg_chip_type:%d\n",
+                dev_id, cfg->chip_type);
 #endif
             break;
         case CHIP_DESS:
 #if defined DESS
             rv = dess_init(dev_id, cfg);
+#else
+            SSDK_ERROR("hsl_dev_init: CHIP_DESS 未编译 dev_id:%u cfg_chip_type:%d\n",
+                dev_id, cfg->chip_type);
 #endif
             break;
         case CHIP_APPE:
         case CHIP_HPPE:
 #if defined HPPE
             rv = hppe_init(dev_id, cfg);
+#else
+            SSDK_ERROR("hsl_dev_init: CHIP_HPPE/APPE 未编译 dev_id:%u cfg_chip_type:%d\n",
+                dev_id, cfg->chip_type);
 #endif
             break;
 /*qca808x_start*/
@@ -288,7 +315,15 @@ hsl_dev_init(a_uint32_t dev_id, ssdk_init_cfg *cfg)
             break;
 /*qca808x_start*/
         default:
+            SSDK_ERROR("hsl_dev_init: 不支持的 chip_type dev_id:%u cfg_chip_type:%d\n",
+                dev_id, cfg->chip_type);
             return SW_BAD_PARAM;
+    }
+
+    if (rv != SW_OK) {
+        SSDK_ERROR("hsl_dev_init: 初始化失败 dev_id:%u cfg_chip_type:%d rv:%d cfg_reg_mode:%d cfg_cpu_mode:%d cfg_chip_revision:%u cfg_nl_prot:%u cfg_phy_id:%u\n",
+            dev_id, cfg->chip_type, rv, cfg->reg_mode, cfg->cpu_mode, cfg->chip_revision,
+            cfg->nl_prot, cfg->phy_id);
     }
 
     return rv;
