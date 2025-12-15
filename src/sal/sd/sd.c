@@ -18,6 +18,7 @@
 /*qca808x_start*/
 #include "sw.h"
 #include "ssdk_init.h"
+#include "ssdk_plat.h"
 #include "sd.h"
 #include "sw_api.h"
 #if ((!defined(KERNEL_MODULE)) && defined(UK_IF))
