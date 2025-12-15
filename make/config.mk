@@ -1,6 +1,15 @@
 include $(PRJ_PATH)/config
 -include $(SYS_PATH)/include/config/auto.conf
 
+# Print the resolved SoC from config for easier build-time inspection
+ifeq ($(origin SoC), undefined)
+  $(info SSDK CONFIG: SoC is not set)
+else
+  $(info SSDK CONFIG: SoC=$(SoC))
+endif
+
+-include $(SYS_PATH)/include/config/auto.conf
+
 ifndef SYS_PATH
   $(error SYS_PATH isn't defined!)
 endif
