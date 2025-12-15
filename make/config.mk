@@ -8,6 +8,13 @@ else
   $(info SSDK CONFIG: SoC=$(SoC))
 endif
 
+# Print ISISC_ENABLE from config to clarify whether ISISC support is intended
+ifeq ($(origin ISISC_ENABLE), undefined)
+  $(info SSDK CONFIG: ISISC_ENABLE is not set)
+else
+  $(info SSDK CONFIG: ISISC_ENABLE=$(ISISC_ENABLE))
+endif
+
 -include $(SYS_PATH)/include/config/auto.conf
 
 ifndef SYS_PATH
