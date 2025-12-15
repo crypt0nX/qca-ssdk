@@ -623,7 +623,11 @@ static void ssdk_dt_parse_scheduler_cfg(a_uint32_t dev_id, struct device_node *s
 static struct device_node *ssdk_dt_get_mdio_node(a_uint32_t dev_id)
 {
 	struct device_node *mdio_node = NULL;
-	hsl_reg_mode reg_mode = ssdk_switch_reg_access_mode_get(dev_id);
+/*
+ * Use the runtime register access mode (local or virtual) so we bind the
+ * correct MDIO bus for the current device instead of assuming local bus.
+ */
+hsl_reg_mode reg_mode = ssdk_switch_reg_access_mode_get(dev_id);
 
 	if (reg_mode == HSL_REG_LOCAL_BUS) {
 		mdio_node = of_find_compatible_node(NULL, NULL, "qcom,ipq40xx-mdio");
@@ -828,7 +832,7 @@ ssdk_dt_parse_default_mdio_bus(struct device_node *switch_node, a_uint32_t dev_i
 {
 	struct device_node *mdio_node = NULL;
 	struct platform_device *mdio_plat = NULL;
-	hsl_reg_mode reg_mode = HSL_REG_LOCAL_BUS;
+        hsl_reg_mode reg_mode = ssdk_switch_reg_access_mode_get(dev_id);
 	a_uint32_t miibus_index = 0;
 	sw_error_t rv = SW_OK;
 

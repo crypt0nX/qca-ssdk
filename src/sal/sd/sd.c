@@ -52,6 +52,8 @@ sd_reg_mdio_set(a_uint32_t dev_id, a_uint32_t phy, a_uint32_t reg,
     else
     {
 #if ((!defined(KERNEL_MODULE)) && defined(UK_IF))
+        SSDK_INFO("mdio_set 未提供，走 UK_IF 回退路径 dev_id:%u phy:%u reg:%u data:%u\n",
+                  dev_id, phy, reg, data);
         {
             a_uint32_t args[SW_MAX_API_PARAM];
 
@@ -63,10 +65,14 @@ sd_reg_mdio_set(a_uint32_t dev_id, a_uint32_t phy, a_uint32_t reg,
             args[5] = data;
             if (SW_OK != sw_uk_if(args))
             {
+                SSDK_ERROR("mdio_set UK_IF 回退执行失败 dev_id:%u phy:%u reg:%u data:%u\n",
+                           dev_id, phy, reg, data);
                 return SW_FAIL;
             }
         }
 #else
+        SSDK_INFO("mdio_set 未提供且未编译 UK_IF，返回 SW_NOT_SUPPORTED dev_id:%u phy:%u reg:%u data:%u\n",
+                  dev_id, phy, reg, data);
         return SW_NOT_SUPPORTED;
 #endif
     }
@@ -86,6 +92,8 @@ sd_reg_mdio_get(a_uint32_t dev_id, a_uint32_t phy, a_uint32_t reg, a_uint16_t * 
     else
     {
 #if ((!defined(KERNEL_MODULE)) && defined(UK_IF))
+        SSDK_INFO("mdio_get 未提供，走 UK_IF 回退路径 dev_id:%u phy:%u reg:%u\n",
+                  dev_id, phy, reg);
         {
             a_uint32_t args[SW_MAX_API_PARAM];
             a_uint32_t tmp;
@@ -98,11 +106,15 @@ sd_reg_mdio_get(a_uint32_t dev_id, a_uint32_t phy, a_uint32_t reg, a_uint16_t * 
             args[5] = (a_uint32_t) & tmp;
             if (SW_OK != sw_uk_if(args))
             {
+                SSDK_ERROR("mdio_get UK_IF 回退执行失败 dev_id:%u phy:%u reg:%u\n",
+                           dev_id, phy, reg);
                 return SW_FAIL;
             }
             *data = *((a_uint16_t *)&tmp);
         }
 #else
+        SSDK_INFO("mdio_get 未提供且未编译 UK_IF，返回 SW_NOT_SUPPORTED dev_id:%u phy:%u reg:%u\n",
+                  dev_id, phy, reg);
         return SW_NOT_SUPPORTED;
 #endif
     }
@@ -344,11 +356,30 @@ sd_init(a_uint32_t dev_id, ssdk_init_cfg * cfg)
     if (NULL != cfg->reg_func.mdio_set)
     {
         ssdk_mdio_set = cfg->reg_func.mdio_set;
+        SSDK_INFO("mdio_set comes from cfg->reg_func: %p\n", ssdk_mdio_set);
+    }
+    else
+    {
+        /*
+         * When the board DTS/plat init doesn't provide mdio_set,
+         * the core keeps this pointer NULL so sd_reg_mdio_set()
+         * will fall back to the UK_IF handler (or report
+         * SW_NOT_SUPPORTED if that path is not built in).
+         */
+        SSDK_INFO("mdio_set is NULL in cfg->reg_func; fallback will be used if available\n");
     }
 
     if (NULL != cfg->reg_func.mdio_get)
     {
         ssdk_mdio_get = cfg->reg_func.mdio_get;
+        SSDK_INFO("mdio_get comes from cfg->reg_func: %p\n", ssdk_mdio_get);
+    }
+    else
+    {
+        /* See above: lack of mdio_get means sd_reg_mdio_get() relies
+         * on the user-kernel interface (UK_IF) or returns unsupported.
+         */
+        SSDK_INFO("mdio_get is NULL in cfg->reg_func; fallback will be used if available\n");
     }
 
     if (NULL != cfg->reg_func.i2c_set)
