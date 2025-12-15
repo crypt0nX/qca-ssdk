@@ -679,9 +679,14 @@ static sw_error_t ssdk_dt_parse_phy_info(struct device_node *switch_node, a_uint
 		if (!mdio_node)
 			mdio_node = ssdk_dt_get_mdio_node(dev_id);
 
-		if (mdio_node)
-		{
-			ssdk_miibus_add(dev_id, of_mdio_find_bus(mdio_node), &miibus_index);
+                if (mdio_node)
+                {
+                        struct mii_bus *mdio_bus = of_mdio_find_bus(mdio_node);
+
+                        if (!mdio_bus)
+                                return -EPROBE_DEFER;
+
+                        ssdk_miibus_add(dev_id, mdio_bus, &miibus_index);
 			phy_reset_gpio = of_get_named_gpio(mdio_node, "phy-reset-gpio",
 				SSDK_PHY_RESET_GPIO_INDEX);
 			if(phy_reset_gpio > 0)
@@ -836,13 +841,17 @@ ssdk_dt_parse_default_mdio_bus(struct device_node *switch_node, a_uint32_t dev_i
 	a_uint32_t miibus_index = 0;
 	sw_error_t rv = SW_OK;
 
-	if (switch_node) {
-		mdio_node = of_parse_phandle(switch_node, "mdio-bus", 0);
-		if (mdio_node) {
-			return ssdk_miibus_add(dev_id, of_mdio_find_bus(mdio_node),
-				&miibus_index);
-		}
-	}
+        if (switch_node) {
+                mdio_node = of_parse_phandle(switch_node, "mdio-bus", 0);
+                if (mdio_node) {
+                        struct mii_bus *mdio_bus = of_mdio_find_bus(mdio_node);
+
+                        if (!mdio_bus)
+                                return -EPROBE_DEFER;
+
+                        return ssdk_miibus_add(dev_id, mdio_bus, &miibus_index);
+                }
+        }
 
 	mdio_node = ssdk_dt_get_mdio_node(dev_id);
 	if (!mdio_node) {
