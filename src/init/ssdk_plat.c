@@ -123,6 +123,38 @@ static int ssdk_dev_id = 0;
 a_uint32_t ssdk_log_level = SSDK_LOG_LEVEL_DEFAULT;
 /*qca808x_end*/
 
+static sw_error_t ssdk_plat_mdio_write(a_uint32_t dev_id, a_uint32_t phy,
+                                      a_uint32_t reg, a_uint16_t data)
+{
+        struct mii_bus *bus = ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
+
+        if (!bus) {
+                SSDK_ERROR("mdio bus not found for dev_id %u\n", dev_id);
+                return SW_NOT_INITIALIZED;
+        }
+
+        return mdiobus_write(bus, phy, reg, data) ? SW_FAIL : SW_OK;
+}
+
+static sw_error_t ssdk_plat_mdio_read(a_uint32_t dev_id, a_uint32_t phy,
+                                     a_uint32_t reg, a_uint16_t *data)
+{
+        int ret;
+        struct mii_bus *bus = ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
+
+        if (!bus) {
+                SSDK_ERROR("mdio bus not found for dev_id %u\n", dev_id);
+                return SW_NOT_INITIALIZED;
+        }
+
+        ret = mdiobus_read(bus, phy, reg);
+        if (ret < 0)
+                return SW_FAIL;
+
+        *data = (a_uint16_t)ret;
+        return SW_OK;
+}
+
 sw_error_t qca_mii_bus_lock(a_uint32_t dev_id, a_bool_t enable)
 {
 	struct mii_bus *miibus = ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
@@ -1511,10 +1543,10 @@ ssdk_plat_init(ssdk_init_cfg *cfg, a_uint32_t dev_id)
 	}
 #endif
 	reg_mode = ssdk_switch_reg_access_mode_get(dev_id);
-	if (reg_mode == HSL_REG_LOCAL_BUS) {
-		ssdk_switch_reg_map_info_get(dev_id, &map);
-		qca_phy_priv_global[dev_id]->hw_addr = ioremap(map.base_addr,
-								map.size);
+        if (reg_mode == HSL_REG_LOCAL_BUS) {
+                ssdk_switch_reg_map_info_get(dev_id, &map);
+                qca_phy_priv_global[dev_id]->hw_addr = ioremap(map.base_addr,
+                                                                map.size);
 		if (!qca_phy_priv_global[dev_id]->hw_addr) {
 			SSDK_ERROR("%s ioremap fail.", __func__);
 			return -1;
@@ -1532,10 +1564,22 @@ ssdk_plat_init(ssdk_init_cfg *cfg, a_uint32_t dev_id)
 #endif
 		}
 
-		cfg->reg_mode = HSL_HEADER;
-	} else if (reg_mode == HSL_REG_MDIO) {
-		cfg->reg_mode = HSL_MDIO;
-	}
+                cfg->reg_mode = HSL_HEADER;
+        } else if (reg_mode == HSL_REG_MDIO) {
+                cfg->reg_mode = HSL_MDIO;
+
+                if (!cfg->reg_func.mdio_set) {
+                        cfg->reg_func.mdio_set = ssdk_plat_mdio_write;
+                        SSDK_INFO("mdio_set defaulted to mdio bus helper for dev_id %u\n",
+                                  dev_id);
+                }
+
+                if (!cfg->reg_func.mdio_get) {
+                        cfg->reg_func.mdio_get = ssdk_plat_mdio_read;
+                        SSDK_INFO("mdio_get defaulted to mdio bus helper for dev_id %u\n",
+                                  dev_id);
+                }
+        }
 
 #ifdef DESS
 	reg_mode = ssdk_psgmii_reg_access_mode_get(dev_id);
