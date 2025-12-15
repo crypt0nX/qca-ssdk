@@ -151,6 +151,8 @@ sd_reg_i2c_set(a_uint32_t dev_id, a_uint32_t phy, a_uint32_t reg,
             }
         }
 #else
+        SSDK_INFO("i2c_set 未提供且未编译 UK_IF，返回 SW_NOT_SUPPORTED dev_id:%u phy:%u reg:%u data:%u\n",
+                  dev_id, phy, reg, data);
         return SW_NOT_SUPPORTED;
 #endif
     }
@@ -187,6 +189,8 @@ sd_reg_i2c_get(a_uint32_t dev_id, a_uint32_t phy, a_uint32_t reg, a_uint16_t * d
             *data = *((a_uint16_t *)&tmp);
         }
 #else
+        SSDK_INFO("i2c_get 未提供且未编译 UK_IF，返回 SW_NOT_SUPPORTED dev_id:%u phy:%u reg:%u\n",
+                  dev_id, phy, reg);
         return SW_NOT_SUPPORTED;
 #endif
     }
@@ -205,6 +209,8 @@ sd_reg_hdr_set(a_uint32_t dev_id, a_uint32_t reg_addr, a_uint8_t * reg_data, a_u
     }
     else
     {
+        SSDK_INFO("hdr_reg_set 回调缺失，返回 SW_NOT_SUPPORTED dev_id:%u reg_addr:%u len:%u\n",
+                  dev_id, reg_addr, len);
         return SW_NOT_SUPPORTED;
     }
 
@@ -222,6 +228,8 @@ sd_reg_hdr_get(a_uint32_t dev_id, a_uint32_t reg_addr, a_uint8_t * reg_data, a_u
     }
     else
     {
+        SSDK_INFO("hdr_reg_get 回调缺失，返回 SW_NOT_SUPPORTED dev_id:%u reg_addr:%u len:%u\n",
+                  dev_id, reg_addr, len);
         return SW_NOT_SUPPORTED;
     }
 
@@ -239,6 +247,8 @@ sd_reg_psgmii_set(a_uint32_t dev_id, a_uint32_t reg_addr, a_uint8_t * reg_data, 
     }
     else
     {
+        SSDK_INFO("psgmii_reg_set 回调缺失，返回 SW_NOT_SUPPORTED dev_id:%u reg_addr:%u len:%u\n",
+                  dev_id, reg_addr, len);
         return SW_NOT_SUPPORTED;
     }
 
@@ -256,6 +266,8 @@ sd_reg_psgmii_get(a_uint32_t dev_id, a_uint32_t reg_addr, a_uint8_t * reg_data, 
     }
     else
     {
+        SSDK_INFO("psgmii_reg_get 回调缺失，返回 SW_NOT_SUPPORTED dev_id:%u reg_addr:%u len:%u\n",
+                  dev_id, reg_addr, len);
         return SW_NOT_SUPPORTED;
     }
 
@@ -274,6 +286,8 @@ sd_reg_uniphy_set(a_uint32_t dev_id, a_uint32_t index, a_uint32_t reg_addr,
     }
     else
     {
+        SSDK_INFO("uniphy_reg_set 回调缺失，返回 SW_NOT_SUPPORTED dev_id:%u index:%u reg_addr:%u len:%u\n",
+                  dev_id, index, reg_addr, len);
         return SW_NOT_SUPPORTED;
     }
 
@@ -292,6 +306,8 @@ sd_reg_uniphy_get(a_uint32_t dev_id, a_uint32_t index, a_uint32_t reg_addr,
     }
     else
     {
+        SSDK_INFO("uniphy_reg_get 回调缺失，返回 SW_NOT_SUPPORTED dev_id:%u index:%u reg_addr:%u len:%u\n",
+                  dev_id, index, reg_addr, len);
         return SW_NOT_SUPPORTED;
     }
 
