@@ -837,7 +837,7 @@ ssdk_dt_parse_default_mdio_bus(struct device_node *switch_node, a_uint32_t dev_i
 {
 	struct device_node *mdio_node = NULL;
 	struct platform_device *mdio_plat = NULL;
-        hsl_reg_mode reg_mode = HSL_REG_LOCAL_BUS;
+        hsl_reg_mode reg_mode = ssdk_switch_reg_access_mode_get(dev_id);
 	a_uint32_t miibus_index = 0;
 	sw_error_t rv = SW_OK;
 
@@ -865,7 +865,7 @@ ssdk_dt_parse_default_mdio_bus(struct device_node *switch_node, a_uint32_t dev_i
 		return SW_NOT_FOUND;
 	}
 
-	if(reg_mode == HSL_REG_LOCAL_BUS) {
+        if(reg_mode == HSL_REG_LOCAL_BUS) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0))
 		rv = ssdk_miibus_add(dev_id, dev_get_drvdata(&mdio_plat->dev), &miibus_index);
 #else
