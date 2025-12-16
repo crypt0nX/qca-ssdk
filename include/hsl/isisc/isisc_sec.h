@@ -28,6 +28,9 @@ extern "C" {
 #define ISISC_SEC_INIT(rv, dev_id) \
     { \
         rv = isisc_sec_init(dev_id); \
+        if (rv == SW_NOT_SUPPORTED) { \
+            SSDK_ERROR("isisc_sec_init 返回 SW_NOT_SUPPORTED dev_id:%u\n", dev_id); \
+        } \
         SW_RTN_ON_ERROR(rv); \
     }
 #else

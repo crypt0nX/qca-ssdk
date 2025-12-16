@@ -29,6 +29,9 @@ extern "C" {
 #define ISISC_MIB_INIT(rv, dev_id) \
     { \
         rv = isisc_mib_init(dev_id); \
+        if (rv == SW_NOT_SUPPORTED) { \
+            SSDK_ERROR("isisc_mib_init 返回 SW_NOT_SUPPORTED dev_id:%u\n", dev_id); \
+        } \
         SW_RTN_ON_ERROR(rv); \
     }
 #else

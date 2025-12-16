@@ -30,6 +30,9 @@ extern "C" {
 #define ISISC_PORT_CTRL_INIT(rv, dev_id) \
     { \
         rv = isisc_port_ctrl_init(dev_id); \
+        if (rv == SW_NOT_SUPPORTED) { \
+            SSDK_ERROR("isisc_port_ctrl_init 返回 SW_NOT_SUPPORTED dev_id:%u\n", dev_id); \
+        } \
         SW_RTN_ON_ERROR(rv); \
     }
 #else

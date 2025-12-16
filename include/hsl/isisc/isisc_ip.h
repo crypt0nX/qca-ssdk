@@ -30,12 +30,18 @@ extern "C" {
 #define ISISC_IP_INIT(rv, dev_id) \
     { \
         rv = isisc_ip_init(dev_id); \
+        if (rv == SW_NOT_SUPPORTED) { \
+            SSDK_ERROR("isisc_ip_init 返回 SW_NOT_SUPPORTED dev_id:%u\n", dev_id); \
+        } \
         SW_RTN_ON_ERROR(rv); \
     }
 
 #define ISISC_IP_RESET(rv, dev_id) \
     { \
         rv = isisc_ip_reset(dev_id); \
+        if (rv == SW_NOT_SUPPORTED) { \
+            SSDK_ERROR("isisc_ip_reset 返回 SW_NOT_SUPPORTED dev_id:%u\n", dev_id); \
+        } \
         SW_RTN_ON_ERROR(rv); \
     }
 #else
