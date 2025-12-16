@@ -283,6 +283,8 @@ isisc_reset(a_uint32_t dev_id)
 sw_error_t
 isisc_init(a_uint32_t dev_id, ssdk_init_cfg *cfg)
 {
+    sw_error_t rv;
+
     HSL_DEV_ID_CHECK(dev_id);
 
     if (NULL == isisc_cfg[dev_id])
