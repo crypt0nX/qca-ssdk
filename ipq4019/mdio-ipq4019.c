@@ -51,16 +51,23 @@
 
 #define SSDK_SWITCH_REG_TYPE_MASK		GENMASK(31, 28)
 
+/* 必须与 qca-ssdk 中的定义完全一致：字段顺序/类型/数组大小都要一致 */
 struct qca_mdio_data {
+	struct mii_bus *mii_bus;
+	struct clk *mdio_clk;
+	void __iomem *membase;
+	int phy_irq[PHY_MAX_ADDR];
+	int clk_div;
+	bool force_c22;
+	void (*preinit)(struct mii_bus *bus);
 	u32 (*sw_read)(struct mii_bus *bus, u32 reg);
 	void (*sw_write)(struct mii_bus *bus, u32 reg, u32 val);
 };
 
 struct ipq4019_mdio_data {
-	struct qca_mdio_data ssdk;
-	void __iomem	*membase;
+	struct qca_mdio_data ssdk;	/* 必须第一个成员，保证 bus->priv 起始布局一致 */
+
 	void __iomem *eth_ldo_rdy;
-	struct clk *mdio_clk;
 	unsigned int mdc_rate;
 	u16 page;
 };
@@ -70,7 +77,7 @@ static int ipq4019_mdio_wait_busy(struct mii_bus *bus)
 	struct ipq4019_mdio_data *priv = bus->priv;
 	unsigned int busy;
 
-	return readl_poll_timeout(priv->membase + MDIO_CMD_REG, busy,
+	return readl_poll_timeout(priv->ssdk.membase + MDIO_CMD_REG, busy,
 				  (busy & MDIO_CMD_ACCESS_BUSY) == 0,
 				  IPQ4019_MDIO_SLEEP, IPQ4019_MDIO_TIMEOUT);
 }
@@ -85,22 +92,22 @@ static int ipq4019_mdio_read_c45(struct mii_bus *bus, int mii_id, int mmd,
 	if (ipq4019_mdio_wait_busy(bus))
 		return -ETIMEDOUT;
 
-	data = readl(priv->membase + MDIO_MODE_REG);
+	data = readl(priv->ssdk.membase + MDIO_MODE_REG);
 
 	data |= MDIO_MODE_C45;
 
-	writel(data, priv->membase + MDIO_MODE_REG);
+	writel(data, priv->ssdk.membase + MDIO_MODE_REG);
 
 	/* issue the phy address and mmd */
-	writel((mii_id << 8) | mmd, priv->membase + MDIO_ADDR_REG);
+	writel((mii_id << 8) | mmd, priv->ssdk.membase + MDIO_ADDR_REG);
 
 	/* issue reg */
-	writel(reg, priv->membase + MDIO_DATA_WRITE_REG);
+	writel(reg, priv->ssdk.membase + MDIO_DATA_WRITE_REG);
 
 	cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_C45_ADDR;
 
 	/* issue read command */
-	writel(cmd, priv->membase + MDIO_CMD_REG);
+	writel(cmd, priv->ssdk.membase + MDIO_CMD_REG);
 
 	/* Wait read complete */
 	if (ipq4019_mdio_wait_busy(bus))
@@ -108,13 +115,13 @@ static int ipq4019_mdio_read_c45(struct mii_bus *bus, int mii_id, int mmd,
 
 	cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_C45_READ;
 
-	writel(cmd, priv->membase + MDIO_CMD_REG);
+	writel(cmd, priv->ssdk.membase + MDIO_CMD_REG);
 
 	if (ipq4019_mdio_wait_busy(bus))
 		return -ETIMEDOUT;
 
 	/* Read and return data */
-	return readl(priv->membase + MDIO_DATA_READ_REG);
+	return readl(priv->ssdk.membase + MDIO_DATA_READ_REG);
 }
 
 static int ipq4019_mdio_read_c22(struct mii_bus *bus, int mii_id, int regnum)
@@ -126,26 +133,26 @@ static int ipq4019_mdio_read_c22(struct mii_bus *bus, int mii_id, int regnum)
 	if (ipq4019_mdio_wait_busy(bus))
 		return -ETIMEDOUT;
 
-	data = readl(priv->membase + MDIO_MODE_REG);
+	data = readl(priv->ssdk.membase + MDIO_MODE_REG);
 
 	data &= ~MDIO_MODE_C45;
 
-	writel(data, priv->membase + MDIO_MODE_REG);
+	writel(data, priv->ssdk.membase + MDIO_MODE_REG);
 
 	/* issue the phy address and reg */
-	writel((mii_id << 8) | regnum, priv->membase + MDIO_ADDR_REG);
+	writel((mii_id << 8) | regnum, priv->ssdk.membase + MDIO_ADDR_REG);
 
 	cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_READ;
 
 	/* issue read command */
-	writel(cmd, priv->membase + MDIO_CMD_REG);
+	writel(cmd, priv->ssdk.membase + MDIO_CMD_REG);
 
 	/* Wait read complete */
 	if (ipq4019_mdio_wait_busy(bus))
 		return -ETIMEDOUT;
 
 	/* Read and return data */
-	return readl(priv->membase + MDIO_DATA_READ_REG);
+	return readl(priv->ssdk.membase + MDIO_DATA_READ_REG);
 }
 
 static int ipq4019_mdio_write_c45(struct mii_bus *bus, int mii_id, int mmd,
@@ -158,30 +165,30 @@ static int ipq4019_mdio_write_c45(struct mii_bus *bus, int mii_id, int mmd,
 	if (ipq4019_mdio_wait_busy(bus))
 		return -ETIMEDOUT;
 
-	data = readl(priv->membase + MDIO_MODE_REG);
+	data = readl(priv->ssdk.membase + MDIO_MODE_REG);
 
 	data |= MDIO_MODE_C45;
 
-	writel(data, priv->membase + MDIO_MODE_REG);
+	writel(data, priv->ssdk.membase + MDIO_MODE_REG);
 
 	/* issue the phy address and mmd */
-	writel((mii_id << 8) | mmd, priv->membase + MDIO_ADDR_REG);
+	writel((mii_id << 8) | mmd, priv->ssdk.membase + MDIO_ADDR_REG);
 
 	/* issue reg */
-	writel(reg, priv->membase + MDIO_DATA_WRITE_REG);
+	writel(reg, priv->ssdk.membase + MDIO_DATA_WRITE_REG);
 
 	cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_C45_ADDR;
 
-	writel(cmd, priv->membase + MDIO_CMD_REG);
+	writel(cmd, priv->ssdk.membase + MDIO_CMD_REG);
 
 	if (ipq4019_mdio_wait_busy(bus))
 		return -ETIMEDOUT;
 
 	/* issue write data */
-	writel(value, priv->membase + MDIO_DATA_WRITE_REG);
+	writel(value, priv->ssdk.membase + MDIO_DATA_WRITE_REG);
 
 	cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_C45_WRITE;
-	writel(cmd, priv->membase + MDIO_CMD_REG);
+	writel(cmd, priv->ssdk.membase + MDIO_CMD_REG);
 
 	/* Wait write complete */
 	if (ipq4019_mdio_wait_busy(bus))
@@ -201,22 +208,22 @@ static int ipq4019_mdio_write_c22(struct mii_bus *bus, int mii_id, int regnum,
 		return -ETIMEDOUT;
 
 	/* Enter Clause 22 mode */
-	data = readl(priv->membase + MDIO_MODE_REG);
+	data = readl(priv->ssdk.membase + MDIO_MODE_REG);
 
 	data &= ~MDIO_MODE_C45;
 
-	writel(data, priv->membase + MDIO_MODE_REG);
+	writel(data, priv->ssdk.membase + MDIO_MODE_REG);
 
 	/* issue the phy address and reg */
-	writel((mii_id << 8) | regnum, priv->membase + MDIO_ADDR_REG);
+	writel((mii_id << 8) | regnum, priv->ssdk.membase + MDIO_ADDR_REG);
 
 	/* issue write data */
-	writel(value, priv->membase + MDIO_DATA_WRITE_REG);
+	writel(value, priv->ssdk.membase + MDIO_DATA_WRITE_REG);
 
 	/* issue write command */
 	cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_WRITE;
 
-	writel(cmd, priv->membase + MDIO_CMD_REG);
+	writel(cmd, priv->ssdk.membase + MDIO_CMD_REG);
 
         /* Wait write complete */
         if (ipq4019_mdio_wait_busy(bus))
@@ -299,7 +306,7 @@ static u32 ipq4019_mdio_sw_read(struct mii_bus *bus, u32 reg)
         if (ret < 0)
                 return 0xffffffff;
 
-        dev_dbg(bus->parent, "sw_read reg=0x%08x page=0x%x r1=0x%x r2=0x%x val=0x%08x\n",
+        dev_info(bus->parent, "sw_read reg=0x%08x page=0x%x r1=0x%x r2=0x%x val=0x%08x\n",
                 regaddr, page, r1, r2, val);
 
         return val;
@@ -315,7 +322,7 @@ static void ipq4019_mdio_sw_write(struct mii_bus *bus, u32 reg, u32 val)
         if (ipq4019_mdio_set_page(bus, page) < 0)
                 return;
 
-        dev_dbg(bus->parent, "sw_write reg=0x%08x page=0x%x r1=0x%x r2=0x%x val=0x%08x\n",
+        dev_info(bus->parent, "sw_write reg=0x%08x page=0x%x r1=0x%x r2=0x%x val=0x%08x\n",
                 regaddr, page, r1, r2, val);
 
         ipq4019_mdio_mii_write32(bus, 0x10 | r2, r1, val);
@@ -329,8 +336,8 @@ static int ipq4019_mdio_set_div(struct ipq4019_mdio_data *priv)
 
 	/* If we don't have a clock for AHB use the fixed value */
 	ahb_rate = IPQ_MDIO_CLK_RATE;
-	if (priv->mdio_clk)
-		ahb_rate = clk_get_rate(priv->mdio_clk);
+	if (priv->ssdk.mdio_clk)
+		ahb_rate = clk_get_rate(priv->ssdk.mdio_clk);
 
 	/* MDC rate is ahb_rate/(MDIO_MODE_DIV + 1)
 	 * While supported, internal documentation doesn't
@@ -340,10 +347,10 @@ static int ipq4019_mdio_set_div(struct ipq4019_mdio_data *priv)
 	for (div = 8; div <= 256; div *= 2) {
 		/* The requested rate is supported by the div */
 		if (priv->mdc_rate == DIV_ROUND_UP(ahb_rate, div)) {
-			val = readl(priv->membase + MDIO_MODE_REG);
+			val = readl(priv->ssdk.membase + MDIO_MODE_REG);
 			val &= ~MDIO_MODE_DIV_MASK;
 			val |= MDIO_MODE_DIV(div);
-			writel(val, priv->membase + MDIO_MODE_REG);
+			writel(val, priv->ssdk.membase + MDIO_MODE_REG);
 
 			return 0;
 		}
@@ -370,11 +377,11 @@ static int ipq_mdio_reset(struct mii_bus *bus)
 	}
 
 	/* Configure MDIO clock source frequency if clock is specified in the device tree */
-	ret = clk_set_rate(priv->mdio_clk, IPQ_MDIO_CLK_RATE);
+	ret = clk_set_rate(priv->ssdk.mdio_clk, IPQ_MDIO_CLK_RATE);
 	if (ret)
 		return ret;
 
-	ret = clk_prepare_enable(priv->mdio_clk);
+	ret = clk_prepare_enable(priv->ssdk.mdio_clk);
 	if (ret)
 		return ret;
 
@@ -398,11 +405,11 @@ static void ipq4019_mdio_select_mdc_rate(struct platform_device *pdev,
 
 	/* If we don't have a clock for AHB use the fixed value */
 	ahb_rate = IPQ_MDIO_CLK_RATE;
-	if (priv->mdio_clk)
-		ahb_rate = clk_get_rate(priv->mdio_clk);
+	if (priv->ssdk.mdio_clk)
+		ahb_rate = clk_get_rate(priv->ssdk.mdio_clk);
 
 	/* Check what is the current div set */
-	val = readl(priv->membase + MDIO_MODE_REG);
+	val = readl(priv->ssdk.membase + MDIO_MODE_REG);
 	div = FIELD_GET(MDIO_MODE_DIV_MASK, val);
 
 	/* div is not set to the default value of /256
@@ -441,14 +448,15 @@ static int ipq4019_mdio_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	priv = bus->priv;
+	priv->ssdk.mii_bus = bus;
 
-	priv->membase = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(priv->membase))
-		return PTR_ERR(priv->membase);
+	priv->ssdk.membase = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(priv->ssdk.membase))
+		return PTR_ERR(priv->ssdk.membase);
 
-	priv->mdio_clk = devm_clk_get_optional(&pdev->dev, "gcc_mdio_ahb_clk");
-	if (IS_ERR(priv->mdio_clk))
-		return PTR_ERR(priv->mdio_clk);
+	priv->ssdk.mdio_clk = devm_clk_get_optional(&pdev->dev, "gcc_mdio_ahb_clk");
+	if (IS_ERR(priv->ssdk.mdio_clk))
+		return PTR_ERR(priv->ssdk.mdio_clk);
 
 	priv->page = 0xffff;
 
@@ -468,6 +476,8 @@ static int ipq4019_mdio_probe(struct platform_device *pdev)
 
 	priv->ssdk.sw_read = ipq4019_mdio_sw_read;
 	priv->ssdk.sw_write = ipq4019_mdio_sw_write;
+
+	dev_info(&pdev->dev, "ipq4019-mdio patched: sw_read/sw_write enabled\n");
 
 	bus->name = "ipq4019_mdio";
 	bus->read = ipq4019_mdio_read_c22;
