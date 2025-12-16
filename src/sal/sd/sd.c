@@ -25,6 +25,18 @@
 #include "sw_api_us.h"
 #endif
 
+#ifdef UK_IF
+#define SSDK_UK_IF_STATE "enabled"
+#else
+#define SSDK_UK_IF_STATE "disabled"
+#endif
+
+#ifdef KERNEL_MODULE
+#define SSDK_KERNEL_MODULE_STATE "yes"
+#else
+#define SSDK_KERNEL_MODULE_STATE "no"
+#endif
+
 mdio_reg_set ssdk_mdio_set    = NULL;
 mdio_reg_get ssdk_mdio_get    = NULL;
 i2c_reg_set ssdk_i2c_set    = NULL;
@@ -53,8 +65,9 @@ sd_reg_mdio_set(a_uint32_t dev_id, a_uint32_t phy, a_uint32_t reg,
     else
     {
 #if ((!defined(KERNEL_MODULE)) && defined(UK_IF))
-        SSDK_INFO("mdio_set 未提供，走 UK_IF 回退路径 dev_id:%u phy:%u reg:%u data:%u\n",
-                  dev_id, phy, reg, data);
+        SSDK_INFO("mdio_set 未提供，UK_IF 已启用并回退 dev_id:%u phy:%u reg:%u data:%u (UK_IF:%s KERNEL_MODULE:%s)\n",
+                  dev_id, phy, reg, data,
+                  SSDK_UK_IF_STATE, SSDK_KERNEL_MODULE_STATE);
         {
             a_uint32_t args[SW_MAX_API_PARAM];
 
@@ -72,8 +85,9 @@ sd_reg_mdio_set(a_uint32_t dev_id, a_uint32_t phy, a_uint32_t reg,
             }
         }
 #else
-        SSDK_INFO("mdio_set 未提供且未编译 UK_IF，返回 SW_NOT_SUPPORTED dev_id:%u phy:%u reg:%u data:%u\n",
-                  dev_id, phy, reg, data);
+        SSDK_INFO("mdio_set 未提供，UK_IF 未启用或当前为内核模块，返回 SW_NOT_SUPPORTED(-19) dev_id:%u phy:%u reg:%u data:%u (UK_IF:%s KERNEL_MODULE:%s)\n",
+                  dev_id, phy, reg, data,
+                  SSDK_UK_IF_STATE, SSDK_KERNEL_MODULE_STATE);
         return SW_NOT_SUPPORTED;
 #endif
     }
@@ -93,8 +107,9 @@ sd_reg_mdio_get(a_uint32_t dev_id, a_uint32_t phy, a_uint32_t reg, a_uint16_t * 
     else
     {
 #if ((!defined(KERNEL_MODULE)) && defined(UK_IF))
-        SSDK_INFO("mdio_get 未提供，走 UK_IF 回退路径 dev_id:%u phy:%u reg:%u\n",
-                  dev_id, phy, reg);
+        SSDK_INFO("mdio_get 未提供，UK_IF 已启用并回退 dev_id:%u phy:%u reg:%u (UK_IF:%s KERNEL_MODULE:%s)\n",
+                  dev_id, phy, reg,
+                  SSDK_UK_IF_STATE, SSDK_KERNEL_MODULE_STATE);
         {
             a_uint32_t args[SW_MAX_API_PARAM];
             a_uint32_t tmp;
@@ -114,8 +129,9 @@ sd_reg_mdio_get(a_uint32_t dev_id, a_uint32_t phy, a_uint32_t reg, a_uint16_t * 
             *data = *((a_uint16_t *)&tmp);
         }
 #else
-        SSDK_INFO("mdio_get 未提供且未编译 UK_IF，返回 SW_NOT_SUPPORTED dev_id:%u phy:%u reg:%u\n",
-                  dev_id, phy, reg);
+        SSDK_INFO("mdio_get 未提供，UK_IF 未启用或当前为内核模块，返回 SW_NOT_SUPPORTED(-19) dev_id:%u phy:%u reg:%u (UK_IF:%s KERNEL_MODULE:%s)\n",
+                  dev_id, phy, reg,
+                  SSDK_UK_IF_STATE, SSDK_KERNEL_MODULE_STATE);
         return SW_NOT_SUPPORTED;
 #endif
     }
@@ -382,9 +398,12 @@ sd_init(a_uint32_t dev_id, ssdk_init_cfg * cfg)
          * the core keeps this pointer NULL so sd_reg_mdio_set()
          * will fall back to the UK_IF handler (or report
          * SW_NOT_SUPPORTED if that path is not built in).
-         */
+        */
         SSDK_INFO("mdio_set is NULL in cfg->reg_func; fallback will be used if available\n");
     }
+
+    SSDK_INFO("UK_IF compile state:%s KERNEL_MODULE:%s (used for MDIO fallback decisions)\n",
+              SSDK_UK_IF_STATE, SSDK_KERNEL_MODULE_STATE);
 
     if (NULL != cfg->reg_func.mdio_get)
     {

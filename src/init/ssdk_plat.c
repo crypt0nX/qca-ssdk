@@ -129,7 +129,8 @@ static sw_error_t ssdk_plat_mdio_write(a_uint32_t dev_id, a_uint32_t phy,
         struct mii_bus *bus = ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
 
         if (!bus) {
-                SSDK_ERROR("mdio bus not found for dev_id %u\n", dev_id);
+                SSDK_ERROR("mdio bus not found for dev_id %u, return SW_NOT_INITIALIZED (MDIO unavailable)\n",
+                            dev_id);
                 return SW_NOT_INITIALIZED;
         }
 
@@ -143,13 +144,17 @@ static sw_error_t ssdk_plat_mdio_read(a_uint32_t dev_id, a_uint32_t phy,
         struct mii_bus *bus = ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
 
         if (!bus) {
-                SSDK_ERROR("mdio bus not found for dev_id %u\n", dev_id);
+                SSDK_ERROR("mdio bus not found for dev_id %u, return SW_NOT_INITIALIZED (MDIO unavailable)\n",
+                            dev_id);
                 return SW_NOT_INITIALIZED;
         }
 
         ret = mdiobus_read(bus, phy, reg);
-        if (ret < 0)
+        if (ret < 0) {
+                SSDK_ERROR("mdiobus_read failed dev_id %u phy %u reg %u ret %d\n",
+                            dev_id, phy, reg, ret);
                 return SW_FAIL;
+        }
 
         *data = (a_uint16_t)ret;
         return SW_OK;
@@ -1567,6 +1572,13 @@ ssdk_plat_init(ssdk_init_cfg *cfg, a_uint32_t dev_id)
                 cfg->reg_mode = HSL_HEADER;
         } else if (reg_mode == HSL_REG_MDIO) {
                 cfg->reg_mode = HSL_MDIO;
+
+                if (ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID))
+                        SSDK_INFO("mdio bus is present for dev_id %u when preparing callbacks\n",
+                                  dev_id);
+                else
+                        SSDK_ERROR("mdio bus is missing for dev_id %u during MDIO callback setup (access may fail)\n",
+                                   dev_id);
 
                 if (!cfg->reg_func.mdio_set) {
                         cfg->reg_func.mdio_set = ssdk_plat_mdio_write;
