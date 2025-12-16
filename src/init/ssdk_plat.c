@@ -367,12 +367,31 @@ sw_error_t qca_mii_raw_update(struct mii_bus *bus, a_uint32_t reg,
 	return SW_FAIL;
 }
 
+static struct mii_bus *
+ssdk_miibus_wait_get(a_uint32_t dev_id, a_uint32_t bus_id)
+{
+	struct mii_bus *bus = NULL;
+	unsigned long timeout = jiffies + msecs_to_jiffies(200);
+
+	do {
+		bus = ssdk_miibus_get(dev_id, bus_id);
+		if (bus)
+			return bus;
+		msleep(20);
+	} while (time_before(jiffies, timeout));
+
+	SSDK_ERROR("miibus get timeout dev_id:%u bus_id:%u, deferring probe\n",
+		  dev_id, bus_id);
+
+	return NULL;
+}
+
 a_uint32_t __qca_mii_read(a_uint32_t dev_id, a_uint32_t reg)
 {
 	a_uint32_t val = 0xffffffff;
 	struct mii_bus *bus = NULL;
 
-	bus = ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
+	bus = ssdk_miibus_wait_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
 	if (!bus)
 		return val;
 
@@ -385,7 +404,7 @@ void __qca_mii_write(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t val)
 {
 	struct mii_bus *bus = NULL;
 
-	bus = ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
+	bus = ssdk_miibus_wait_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
 	if (!bus)
 		return;
 
@@ -397,9 +416,9 @@ int __qca_mii_update(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t mask, a_uint3
 {
 	struct mii_bus *bus = NULL;
 
-	bus = ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
+	bus = ssdk_miibus_wait_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
 	if (!bus)
-		return -1;
+		return -ETIMEDOUT;
 
 	qca_mii_reg_convert(dev_id, &reg);
 	qca_mii_raw_update(bus, reg, mask, val);
@@ -411,7 +430,7 @@ a_uint32_t qca_mii_read(a_uint32_t dev_id, a_uint32_t reg)
 	a_uint32_t val = 0xffffffff;
 	struct mii_bus *bus = NULL;
 
-	bus = ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
+	bus = ssdk_miibus_wait_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
 	if (!bus)
 		return val;
 
@@ -427,7 +446,7 @@ void qca_mii_write(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t val)
 {
 	struct mii_bus *bus = NULL;
 
-	bus = ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
+	bus = ssdk_miibus_wait_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
 	if (!bus)
 		return;
 
@@ -441,9 +460,9 @@ int qca_mii_update(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t mask, a_uint32_
 {
 	struct mii_bus *bus = NULL;
 
-	bus = ssdk_miibus_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
+	bus = ssdk_miibus_wait_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
 	if (!bus)
-		return -1;
+		return -ETIMEDOUT;
 
 	mutex_lock(&bus->mdio_lock);
 	qca_mii_reg_convert(dev_id, &reg);
