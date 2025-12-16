@@ -14,8 +14,40 @@
 #include <linux/clk.h>
 #include <linux/bitfield.h>
 #include <linux/version.h>
+#include <linux/gpio/consumer.h>
 
-#include "ssdk_plat.h"
+/*
+ * Definitions pulled in from SSDK (ssdk_plat.h)
+ * Only key items are mirrored here to keep layouts in sync.
+ */
+#define SSDK_SWITCH_REG_TYPE_MASK               GENMASK(31, 28)
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+#define ETH_LDO_RDY_CNT         3
+struct qca_mdio_data {
+	void __iomem    *membase[2];
+	void __iomem *eth_ldo_rdy[ETH_LDO_RDY_CNT];
+	int             clk_div;
+	bool            force_c22;
+	struct gpio_descs *reset_gpios;
+	void (*preinit)(struct mii_bus *bus);
+	u32 (*sw_read)(struct mii_bus *bus, u32 reg);
+	void (*sw_write)(struct mii_bus *bus, u32 reg, u32 val);
+	struct clk *clk[];
+};
+#else
+struct qca_mdio_data {
+	struct mii_bus *mii_bus;
+	struct clk *mdio_clk;
+	void __iomem *membase;
+	int phy_irq[PHY_MAX_ADDR];
+	int clk_div;
+	bool force_c22;
+	void (*preinit)(struct mii_bus *bus);
+	u32 (*sw_read)(struct mii_bus *bus, u32 reg);
+	void (*sw_write)(struct mii_bus *bus, u32 reg, u32 val);
+};
+#endif
 
 #define MDIO_MODE_REG				0x40
 #define   MDIO_MODE_MDC_MODE			BIT(12)
@@ -52,7 +84,6 @@
 
 #define IPQ_PHY_SET_DELAY_US	100000
 
-#define SSDK_SWITCH_REG_TYPE_MASK		GENMASK(31, 28)
 
 /* 必须与 qca-ssdk 中的定义完全一致：字段顺序/类型/数组大小都要一致 */
 struct ipq4019_mdio_data {
@@ -63,6 +94,13 @@ struct ipq4019_mdio_data {
 	unsigned int mdc_rate;
 	u16 page;
 };
+
+static struct qca_mdio_data *ipq4019_mdio_ssdk_data(struct mii_bus *bus)
+{
+        struct ipq4019_mdio_data *priv = bus->priv;
+
+        return &priv->ssdk;
+}
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
 #define ipq4019_mdio_membase(_priv)	((_priv)->ssdk.membase[0])
@@ -438,30 +476,35 @@ static void ipq4019_mdio_select_mdc_rate(struct platform_device *pdev,
 
 static int ipq4019_mdio_probe(struct platform_device *pdev)
 {
-	struct ipq4019_mdio_data *priv;
-	struct mii_bus *bus;
-	struct resource *res;
-	int ret;
+        struct ipq4019_mdio_data *priv;
+        struct qca_mdio_data *ssdk;
+        struct mii_bus *bus;
+        struct resource *res;
+        int ret;
 
 	bus = devm_mdiobus_alloc_size(&pdev->dev, sizeof(*priv));
 	if (!bus)
 		return -ENOMEM;
 
-	priv = bus->priv;
+        priv = bus->priv;
+        ssdk = ipq4019_mdio_ssdk_data(bus);
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0))
-	priv->ssdk.mii_bus = bus;
+        ssdk->mii_bus = bus;
 #endif
 
-	ipq4019_mdio_membase(priv) = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(ipq4019_mdio_membase(priv)))
-		return PTR_ERR(ipq4019_mdio_membase(priv));
+        ipq4019_mdio_membase(priv) = devm_platform_ioremap_resource(pdev, 0);
+        if (IS_ERR(ipq4019_mdio_membase(priv)))
+                return PTR_ERR(ipq4019_mdio_membase(priv));
 
-	priv->mdio_clk = devm_clk_get_optional(&pdev->dev, "gcc_mdio_ahb_clk");
-	if (IS_ERR(priv->mdio_clk))
-		return PTR_ERR(priv->mdio_clk);
+        priv->mdio_clk = devm_clk_get_optional(&pdev->dev, "gcc_mdio_ahb_clk");
+        if (IS_ERR(priv->mdio_clk))
+                return PTR_ERR(priv->mdio_clk);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0))
+        ssdk->mdio_clk = priv->mdio_clk;
+#endif
 
-	priv->page = 0xffff;
+        priv->page = 0xffff;
 
 	ipq4019_mdio_select_mdc_rate(pdev, priv);
 	ret = ipq4019_mdio_set_div(priv);
@@ -471,14 +514,18 @@ static int ipq4019_mdio_probe(struct platform_device *pdev)
 	/* The platform resource is provided on the chipset IPQ5018 */
 	/* This resource is optional */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (res) {
-		priv->eth_ldo_rdy = devm_ioremap_resource(&pdev->dev, res);
-		if (IS_ERR(priv->eth_ldo_rdy))
-			return PTR_ERR(priv->eth_ldo_rdy);
-	}
+        if (res) {
+                priv->eth_ldo_rdy = devm_ioremap_resource(&pdev->dev, res);
+                if (IS_ERR(priv->eth_ldo_rdy))
+                        return PTR_ERR(priv->eth_ldo_rdy);
 
-	priv->ssdk.sw_read = ipq4019_mdio_sw_read;
-	priv->ssdk.sw_write = ipq4019_mdio_sw_write;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+                ssdk->eth_ldo_rdy[0] = priv->eth_ldo_rdy;
+#endif
+        }
+
+        ssdk->sw_read = ipq4019_mdio_sw_read;
+        ssdk->sw_write = ipq4019_mdio_sw_write;
 
 	dev_info(&pdev->dev, "ipq4019-mdio patched: sw_read/sw_write enabled\n");
 
