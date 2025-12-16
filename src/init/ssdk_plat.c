@@ -118,6 +118,10 @@ extern struct qca_phy_priv **qca_phy_priv_global;
 #define SHIVA_CHIP_REG 0x10
 #define HIGH_ADDR_DFLT	0x200
 
+#ifndef MDIO_PHY_REG
+#define MDIO_PHY_REG(phy, reg) (((phy) << 5) | ((reg) & 0x1f))
+#endif
+
 static sw_error_t ssdk_miibus_wait_get(a_uint32_t dev_id, a_uint32_t bus_id,
                                       struct mii_bus **bus_out);
 
@@ -543,7 +547,8 @@ a_uint32_t qca_mii_read(a_uint32_t dev_id, a_uint32_t reg)
 
 void qca_mii_write(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t val)
 {
-	struct mii_bus *bus = NULL;
+        struct mii_bus *bus = NULL;
+        sw_error_t rv;
 
         rv = ssdk_miibus_wait_get(dev_id, SSDK_MII_DEFAULT_BUS_ID, &bus);
         if (rv != SW_OK)
@@ -557,7 +562,8 @@ void qca_mii_write(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t val)
 
 int qca_mii_update(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t mask, a_uint32_t val)
 {
-	struct mii_bus *bus = NULL;
+        struct mii_bus *bus = NULL;
+        sw_error_t rv;
 
         rv = ssdk_miibus_wait_get(dev_id, SSDK_MII_DEFAULT_BUS_ID, &bus);
         if (rv != SW_OK)
