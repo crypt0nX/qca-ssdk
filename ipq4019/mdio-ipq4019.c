@@ -12,6 +12,7 @@
 #include <linux/phy.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/bitfield.h>
 
 #define MDIO_MODE_REG				0x40
 #define   MDIO_MODE_MDC_MODE			BIT(12)
@@ -48,6 +49,8 @@
 
 #define IPQ_PHY_SET_DELAY_US	100000
 
+#define SSDK_SWITCH_REG_TYPE_MASK		GENMASK(31, 28)
+
 struct qca_mdio_data {
 	u32 (*sw_read)(struct mii_bus *bus, u32 reg);
 	void (*sw_write)(struct mii_bus *bus, u32 reg, u32 val);
@@ -59,6 +62,7 @@ struct ipq4019_mdio_data {
 	void __iomem *eth_ldo_rdy;
 	struct clk *mdio_clk;
 	unsigned int mdc_rate;
+	u16 page;
 };
 
 static int ipq4019_mdio_wait_busy(struct mii_bus *bus)
@@ -187,10 +191,10 @@ static int ipq4019_mdio_write_c45(struct mii_bus *bus, int mii_id, int mmd,
 }
 
 static int ipq4019_mdio_write_c22(struct mii_bus *bus, int mii_id, int regnum,
-				  u16 value)
+                                  u16 value)
 {
-	struct ipq4019_mdio_data *priv = bus->priv;
-	unsigned int data;
+        struct ipq4019_mdio_data *priv = bus->priv;
+        unsigned int data;
 	unsigned int cmd;
 
 	if (ipq4019_mdio_wait_busy(bus))
@@ -214,11 +218,101 @@ static int ipq4019_mdio_write_c22(struct mii_bus *bus, int mii_id, int regnum,
 
 	writel(cmd, priv->membase + MDIO_CMD_REG);
 
-	/* Wait write complete */
-	if (ipq4019_mdio_wait_busy(bus))
-		return -ETIMEDOUT;
+        /* Wait write complete */
+        if (ipq4019_mdio_wait_busy(bus))
+                return -ETIMEDOUT;
 
-	return 0;
+        return 0;
+}
+
+static void ipq4019_mdio_split_addr(u32 regaddr, u16 *r1, u16 *r2, u16 *page)
+{
+        regaddr >>= 1;
+        *r1 = regaddr & 0x1e;
+
+        regaddr >>= 5;
+        *r2 = regaddr & 0x7;
+
+        regaddr >>= 3;
+        *page = regaddr & 0x3ff;
+}
+
+static int ipq4019_mdio_set_page(struct mii_bus *bus, u16 page)
+{
+        struct ipq4019_mdio_data *priv = bus->priv;
+        int ret;
+
+        if (page == priv->page)
+                return 0;
+
+        ret = bus->write(bus, 0x18, 0, page);
+        if (ret < 0)
+                return ret;
+
+        priv->page = page;
+        usleep_range(1000, 2000);
+
+        return 0;
+}
+
+static int ipq4019_mdio_mii_read32(struct mii_bus *bus, int phy_id, u32 regnum,
+                                   u32 *val)
+{
+        int lo, hi;
+
+        lo = bus->read(bus, phy_id, regnum);
+        if (lo < 0)
+                return lo;
+
+        hi = bus->read(bus, phy_id, regnum + 1);
+        if (hi < 0)
+                return hi;
+
+        *val = ((u32)hi << 16) | (u16)lo;
+
+        return 0;
+}
+
+static void ipq4019_mdio_mii_write32(struct mii_bus *bus, int phy_id,
+                                     u32 regnum, u32 val)
+{
+        if (bus->write(bus, phy_id, regnum, val & 0xffff) < 0)
+                return;
+
+        bus->write(bus, phy_id, regnum + 1, val >> 16);
+}
+
+static u32 ipq4019_mdio_sw_read(struct mii_bus *bus, u32 reg)
+{
+        u32 regaddr = reg & ~SSDK_SWITCH_REG_TYPE_MASK;
+        u16 r1, r2, page;
+        u32 val;
+        int ret;
+
+        ipq4019_mdio_split_addr(regaddr, &r1, &r2, &page);
+
+        ret = ipq4019_mdio_set_page(bus, page);
+        if (ret < 0)
+                return 0xffffffff;
+
+        ret = ipq4019_mdio_mii_read32(bus, 0x10 | r2, r1, &val);
+        if (ret < 0)
+                return 0xffffffff;
+
+        return val;
+}
+
+static void ipq4019_mdio_sw_write(struct mii_bus *bus, u32 reg, u32 val)
+{
+        u32 regaddr = reg & ~SSDK_SWITCH_REG_TYPE_MASK;
+        u16 r1, r2, page;
+
+        ipq4019_mdio_split_addr(regaddr, &r1, &r2, &page);
+
+        if (ipq4019_mdio_set_page(bus, page) < 0)
+                return;
+
+        ipq4019_mdio_mii_write32(bus, 0x10 | r2, r1, val);
 }
 
 static int ipq4019_mdio_set_div(struct ipq4019_mdio_data *priv)
@@ -350,6 +444,8 @@ static int ipq4019_mdio_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->mdio_clk))
 		return PTR_ERR(priv->mdio_clk);
 
+	priv->page = 0xffff;
+
 	ipq4019_mdio_select_mdc_rate(pdev, priv);
 	ret = ipq4019_mdio_set_div(priv);
 	if (ret)
@@ -363,6 +459,9 @@ static int ipq4019_mdio_probe(struct platform_device *pdev)
 		if (IS_ERR(priv->eth_ldo_rdy))
 			return PTR_ERR(priv->eth_ldo_rdy);
 	}
+
+	priv->ssdk.sw_read = ipq4019_mdio_sw_read;
+	priv->ssdk.sw_write = ipq4019_mdio_sw_write;
 
 	bus->name = "ipq4019_mdio";
 	bus->read = ipq4019_mdio_read_c22;
