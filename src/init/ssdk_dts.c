@@ -978,15 +978,18 @@ ssdk_dt_parse_interrupt(a_uint32_t dev_id, struct device_node *switch_node)
 	if(of_property_read_string(switch_node, "fdb_sync", &fdb_sync))
 		priv->fdb_sync = FDB_SYNC_DIS;
 	else {
-		if(!strcmp(fdb_sync, "disable"))
-			priv->fdb_sync = FDB_SYNC_DIS;
-		else if(!strcmp(fdb_sync, "interrupt"))
-			priv->fdb_sync = FDB_SYNC_INTR;
-		else if(!strcmp(fdb_sync, "polling"))
-			priv->fdb_sync = FDB_SYNC_POLLING;
-		else
-			return SW_NOT_SUPPORTED;
-	}
+                if(!strcmp(fdb_sync, "disable"))
+                        priv->fdb_sync = FDB_SYNC_DIS;
+                else if(!strcmp(fdb_sync, "interrupt"))
+                        priv->fdb_sync = FDB_SYNC_INTR;
+                else if(!strcmp(fdb_sync, "polling"))
+                        priv->fdb_sync = FDB_SYNC_POLLING;
+                else {
+                        SSDK_ERROR("ssdk_dt_parse: fdb_sync 配置不支持: %s dev_id:%u\n",
+                                   fdb_sync, dev_id);
+                        return SW_NOT_SUPPORTED;
+                }
+        }
 
 	return SW_OK;
 }
