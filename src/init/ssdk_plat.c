@@ -388,28 +388,40 @@ ssdk_miibus_wait_get(a_uint32_t dev_id, a_uint32_t bus_id)
 
 a_uint32_t __qca_mii_read(a_uint32_t dev_id, a_uint32_t reg)
 {
-	a_uint32_t val = 0xffffffff;
-	struct mii_bus *bus = NULL;
+        a_uint32_t val = 0xffffffff;
+        struct mii_bus *bus = NULL;
+        sw_error_t rv;
 
 	bus = ssdk_miibus_wait_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
 	if (!bus)
 		return val;
 
-	qca_mii_reg_convert(dev_id, &reg);
-	qca_mii_raw_read(bus, reg, &val);
-	return val;
+        qca_mii_reg_convert(dev_id, &reg);
+
+        rv = qca_mii_raw_read(bus, reg, &val);
+        if (rv != SW_OK) {
+                SSDK_ERROR("qca_mii_raw_read failed rv:%d dev_id:%u reg:0x%x bus:%p\n",
+                           rv, dev_id, reg, bus);
+                return 0xffffffff;
+        }
+        return val;
 }
 
 void __qca_mii_write(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t val)
 {
-	struct mii_bus *bus = NULL;
+        struct mii_bus *bus = NULL;
+        sw_error_t rv;
 
 	bus = ssdk_miibus_wait_get(dev_id, SSDK_MII_DEFAULT_BUS_ID);
 	if (!bus)
 		return;
 
-	qca_mii_reg_convert(dev_id, &reg);
-	qca_mii_raw_write(bus, reg, val);
+        qca_mii_reg_convert(dev_id, &reg);
+
+        rv = qca_mii_raw_write(bus, reg, val);
+        if (rv != SW_OK)
+                SSDK_ERROR("qca_mii_raw_write failed rv:%d dev_id:%u reg:0x%x val:0x%x bus:%p\n",
+                           rv, dev_id, reg, val, bus);
 }
 
 int __qca_mii_update(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t mask, a_uint32_t val)
