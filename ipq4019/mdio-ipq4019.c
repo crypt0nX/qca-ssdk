@@ -299,6 +299,9 @@ static u32 ipq4019_mdio_sw_read(struct mii_bus *bus, u32 reg)
         if (ret < 0)
                 return 0xffffffff;
 
+        dev_dbg(bus->parent, "sw_read reg=0x%08x page=0x%x r1=0x%x r2=0x%x val=0x%08x\n",
+                regaddr, page, r1, r2, val);
+
         return val;
 }
 
@@ -311,6 +314,9 @@ static void ipq4019_mdio_sw_write(struct mii_bus *bus, u32 reg, u32 val)
 
         if (ipq4019_mdio_set_page(bus, page) < 0)
                 return;
+
+        dev_dbg(bus->parent, "sw_write reg=0x%08x page=0x%x r1=0x%x r2=0x%x val=0x%08x\n",
+                regaddr, page, r1, r2, val);
 
         ipq4019_mdio_mii_write32(bus, 0x10 | r2, r1, val);
 }
