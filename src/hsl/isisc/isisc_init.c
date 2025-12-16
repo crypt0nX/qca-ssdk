@@ -297,17 +297,44 @@ isisc_init(a_uint32_t dev_id, ssdk_init_cfg *cfg)
 
     aos_mem_copy(isisc_cfg[dev_id], cfg, sizeof (ssdk_init_cfg));
 
-    SW_RTN_ON_ERROR(isisc_reg_access_init(dev_id, cfg->reg_mode));
+    rv = isisc_reg_access_init(dev_id, cfg->reg_mode);
+    if (rv == SW_NOT_SUPPORTED) {
+        SSDK_ERROR("isisc_init: reg_access_init 返回 SW_NOT_SUPPORTED dev_id:%u reg_mode:%u\n",
+                   dev_id, cfg->reg_mode);
+    }
+    SW_RTN_ON_ERROR(rv);
 
-    SW_RTN_ON_ERROR(isisc_dev_init(dev_id, cfg->cpu_mode));
+    rv = isisc_dev_init(dev_id, cfg->cpu_mode);
+    if (rv == SW_NOT_SUPPORTED) {
+        SSDK_ERROR("isisc_init: dev_init 返回 SW_NOT_SUPPORTED dev_id:%u cpu_mode:%u\n",
+                   dev_id, cfg->cpu_mode);
+    }
+    SW_RTN_ON_ERROR(rv);
 
 #if !(defined(KERNEL_MODULE) && defined(USER_MODE))
     {
         sw_error_t rv;
 
-        SW_RTN_ON_ERROR(hsl_port_prop_init(dev_id));
-        SW_RTN_ON_ERROR(hsl_port_prop_init_by_dev(dev_id));
-        SW_RTN_ON_ERROR(isisc_portproperty_init(dev_id, cfg->cpu_mode));
+        rv = hsl_port_prop_init(dev_id);
+        if (rv == SW_NOT_SUPPORTED) {
+                SSDK_ERROR("isisc_init: hsl_port_prop_init 返回 SW_NOT_SUPPORTED dev_id:%u\n",
+                           dev_id);
+        }
+        SW_RTN_ON_ERROR(rv);
+
+        rv = hsl_port_prop_init_by_dev(dev_id);
+        if (rv == SW_NOT_SUPPORTED) {
+                SSDK_ERROR("isisc_init: hsl_port_prop_init_by_dev 返回 SW_NOT_SUPPORTED dev_id:%u\n",
+                           dev_id);
+        }
+        SW_RTN_ON_ERROR(rv);
+
+        rv = isisc_portproperty_init(dev_id, cfg->cpu_mode);
+        if (rv == SW_NOT_SUPPORTED) {
+                SSDK_ERROR("isisc_init: isisc_portproperty_init 返回 SW_NOT_SUPPORTED dev_id:%u cpu_mode:%u\n",
+                           dev_id, cfg->cpu_mode);
+        }
+        SW_RTN_ON_ERROR(rv);
 
         ISISC_MIB_INIT(rv, dev_id);
         ISISC_PORT_CTRL_INIT(rv, dev_id);

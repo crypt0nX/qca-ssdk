@@ -42,29 +42,33 @@ qca_mht_work_mode_init(a_uint32_t dev_id, a_uint32_t mac_mode0, a_uint32_t mac_m
 {
 	sw_error_t ret = SW_OK;
 
-	switch (mac_mode0) {
-		case PORT_WRAPPER_SGMII_PLUS:
-		case PORT_WRAPPER_SGMII_CHANNEL0:
-			break;
-		default:
-			return SW_NOT_SUPPORTED;
-	}
+        switch (mac_mode0) {
+                case PORT_WRAPPER_SGMII_PLUS:
+                case PORT_WRAPPER_SGMII_CHANNEL0:
+                        break;
+                default:
+                        SSDK_ERROR("qca_mht_work_mode_init: mac_mode0 不支持 dev_id:%u mac_mode0:%u mac_mode1:%u\n",
+                                   dev_id, mac_mode0, mac_mode1);
+                        return SW_NOT_SUPPORTED;
+        }
 
 	if(mht_uniphy_mode_check(dev_id, MHT_UNIPHY_SGMII_0, MHT_UNIPHY_PHY))
 	{
 		return qca_mht_work_mode_set(dev_id, MHT_SWITCH_BYPASS_PORT5_MODE);
 	}
 
-	switch (mac_mode1) {
-		case PORT_WRAPPER_SGMII_PLUS:
-		case PORT_WRAPPER_SGMII_CHANNEL0:
-		case PORT_WRAPPER_MAX:
-			ret = qca_mht_work_mode_set(dev_id, MHT_SWITCH_MODE);
-			SW_RTN_ON_ERROR(ret);
-			break;
-		default:
-			return SW_NOT_SUPPORTED;
-	}
+        switch (mac_mode1) {
+                case PORT_WRAPPER_SGMII_PLUS:
+                case PORT_WRAPPER_SGMII_CHANNEL0:
+                case PORT_WRAPPER_MAX:
+                        ret = qca_mht_work_mode_set(dev_id, MHT_SWITCH_MODE);
+                        SW_RTN_ON_ERROR(ret);
+                        break;
+                default:
+                        SSDK_ERROR("qca_mht_work_mode_init: mac_mode1 不支持 dev_id:%u mac_mode0:%u mac_mode1:%u\n",
+                                   dev_id, mac_mode0, mac_mode1);
+                        return SW_NOT_SUPPORTED;
+        }
 
 	return SW_OK;
 }
@@ -96,13 +100,17 @@ _qca_mht_interface_mode_init(a_uint32_t dev_id, a_uint32_t port_id,
 		mac_config.mac_mode = FAL_MAC_MODE_SGMII;
 		phy_info->port_mode[port_id] = PHY_SGMII_BASET;
 	}
-	else if(mac_mode == PORT_WRAPPER_MAX)
-	{
-		mac_config.mac_mode = FAL_MAC_MODE_MAX;
-		phy_info->port_mode[port_id] = PORT_INTERFACE_MODE_MAX;
-	}
-	else
-		return SW_NOT_SUPPORTED;
+        else if(mac_mode == PORT_WRAPPER_MAX)
+        {
+                mac_config.mac_mode = FAL_MAC_MODE_MAX;
+                phy_info->port_mode[port_id] = PORT_INTERFACE_MODE_MAX;
+        }
+        else
+        {
+                SSDK_ERROR("qca_mht_interface_mode_init: 不支持的 mac_mode:%u dev_id:%u port_id:%u\n",
+                           mac_mode, dev_id, port_id);
+                return SW_NOT_SUPPORTED;
+        }
 	mac_config.config.sgmii.clock_mode = FAL_INTERFACE_CLOCK_MAC_MODE;
 	mac_config.config.sgmii.auto_neg = !force_en;
 	mac_config.config.sgmii.force_speed = force_speed;
@@ -239,11 +247,11 @@ int qca_mht_hw_init(ssdk_init_cfg *cfg, a_uint32_t dev_id)
 	mht_work_mode_t work_mode;
 	a_uint32_t port_bmp = 0;
 
-	if(!qca_mht_sku_switch_core_enabled(dev_id))
-	{
-		SSDK_ERROR("MHT switch core is not enabled on the SKU\n");
-		return SW_NOT_SUPPORTED;
-	}
+        if(!qca_mht_sku_switch_core_enabled(dev_id))
+        {
+                SSDK_ERROR("MHT switch core is not enabled on the SKU dev_id:%u\n", dev_id);
+                return SW_NOT_SUPPORTED;
+        }
 	ret = qca_mht_work_mode_init(dev_id, cfg->mac_mode, cfg->mac_mode1);
 	SW_RTN_ON_ERROR(ret);
 

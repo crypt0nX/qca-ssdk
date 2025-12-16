@@ -42,19 +42,62 @@ fal_init(a_uint32_t dev_id, ssdk_init_cfg *cfg)
     sw_error_t rv;
     HSL_DEV_ID_CHECK(dev_id);
 
+    if (!cfg) {
+        SSDK_ERROR("fal_init: cfg is NULL for dev:%u\n", dev_id);
+        return SW_BAD_PTR;
+    }
+
+    SSDK_ERROR("fal_init: start dev:%u reg_mode:%d cpu_mode:%d chip_type:%d chip_revision:%u nl_prot:%u chip_spec_cfg:%p port_cfg_cpu_bmp:0x%x port_cfg_lan_bmp:0x%x port_cfg_wan_bmp:0x%x port_cfg_inner_bmp:0x%x mac_mode:%u mac_mode1:%u mac_mode2:%u phy_id:%u\n",
+        dev_id, cfg->reg_mode, cfg->cpu_mode, cfg->chip_type, cfg->chip_revision,
+        cfg->nl_prot, cfg->chip_spec_cfg, cfg->port_cfg.cpu_bmp, cfg->port_cfg.lan_bmp,
+        cfg->port_cfg.wan_bmp, cfg->port_cfg.inner_bmp, cfg->mac_mode, cfg->mac_mode1,
+        cfg->mac_mode2, cfg->phy_id);
+
     rv = hsl_api_init(dev_id);
-    SW_RTN_ON_ERROR(rv);
+    if (rv != SW_OK) {
+        SSDK_ERROR("fal_init: hsl_api_init failed dev:%u rv:%d cfg_reg_mode:%d cfg_cpu_mode:%d cfg_chip_type:%d cfg_chip_revision:%u cfg_nl_prot:%u cfg_chip_spec_cfg:%p cfg_port_cfg_cpu_bmp:0x%x cfg_port_cfg_lan_bmp:0x%x cfg_port_cfg_wan_bmp:0x%x cfg_port_cfg_inner_bmp:0x%x cfg_mac_mode:%u cfg_mac_mode1:%u cfg_mac_mode2:%u cfg_phy_id:%u\n",
+            dev_id, rv, cfg->reg_mode, cfg->cpu_mode, cfg->chip_type,
+            cfg->chip_revision, cfg->nl_prot, cfg->chip_spec_cfg,
+            cfg->port_cfg.cpu_bmp, cfg->port_cfg.lan_bmp, cfg->port_cfg.wan_bmp,
+            cfg->port_cfg.inner_bmp, cfg->mac_mode, cfg->mac_mode1, cfg->mac_mode2,
+            cfg->phy_id);
+        return rv;
+    }
 
     rv = hsl_dev_init(dev_id, cfg);
-    SW_RTN_ON_ERROR(rv);
+    if (rv != SW_OK) {
+        SSDK_ERROR("fal_init: hsl_dev_init failed dev:%u rv:%d cfg_reg_mode:%d cfg_cpu_mode:%d cfg_chip_type:%d cfg_chip_revision:%u cfg_nl_prot:%u cfg_chip_spec_cfg:%p cfg_port_cfg_cpu_bmp:0x%x cfg_port_cfg_lan_bmp:0x%x cfg_port_cfg_wan_bmp:0x%x cfg_port_cfg_inner_bmp:0x%x cfg_mac_mode:%u cfg_mac_mode1:%u cfg_mac_mode2:%u cfg_phy_id:%u\n",
+            dev_id, rv, cfg->reg_mode, cfg->cpu_mode, cfg->chip_type,
+            cfg->chip_revision, cfg->nl_prot, cfg->chip_spec_cfg,
+            cfg->port_cfg.cpu_bmp, cfg->port_cfg.lan_bmp, cfg->port_cfg.wan_bmp,
+            cfg->port_cfg.inner_bmp, cfg->mac_mode, cfg->mac_mode1, cfg->mac_mode2,
+            cfg->phy_id);
+        return rv;
+    }
 /*qca808x_end*/
 #ifdef IN_VLAN
     rv = fal_vlan_init(dev_id);
-    SW_RTN_ON_ERROR(rv);
+    if (rv != SW_OK) {
+        SSDK_ERROR("fal_init: fal_vlan_init failed dev:%u rv:%d cfg_reg_mode:%d cfg_cpu_mode:%d cfg_chip_type:%d cfg_chip_revision:%u cfg_nl_prot:%u cfg_chip_spec_cfg:%p cfg_port_cfg_cpu_bmp:0x%x cfg_port_cfg_lan_bmp:0x%x cfg_port_cfg_wan_bmp:0x%x cfg_port_cfg_inner_bmp:0x%x cfg_mac_mode:%u cfg_mac_mode1:%u cfg_mac_mode2:%u cfg_phy_id:%u\n",
+            dev_id, rv, cfg->reg_mode, cfg->cpu_mode, cfg->chip_type,
+            cfg->chip_revision, cfg->nl_prot, cfg->chip_spec_cfg,
+            cfg->port_cfg.cpu_bmp, cfg->port_cfg.lan_bmp, cfg->port_cfg.wan_bmp,
+            cfg->port_cfg.inner_bmp, cfg->mac_mode, cfg->mac_mode1, cfg->mac_mode2,
+            cfg->phy_id);
+        return rv;
+    }
 #endif
 
     rv = adpt_init(dev_id, cfg);
-    SW_RTN_ON_ERROR(rv);
+    if (rv != SW_OK) {
+        SSDK_ERROR("fal_init: adpt_init failed dev:%u rv:%d cfg_reg_mode:%d cfg_cpu_mode:%d cfg_chip_type:%d cfg_chip_revision:%u cfg_nl_prot:%u cfg_chip_spec_cfg:%p cfg_port_cfg_cpu_bmp:0x%x cfg_port_cfg_lan_bmp:0x%x cfg_port_cfg_wan_bmp:0x%x cfg_port_cfg_inner_bmp:0x%x cfg_mac_mode:%u cfg_mac_mode1:%u cfg_mac_mode2:%u cfg_phy_id:%u\n",
+            dev_id, rv, cfg->reg_mode, cfg->cpu_mode, cfg->chip_type,
+            cfg->chip_revision, cfg->nl_prot, cfg->chip_spec_cfg,
+            cfg->port_cfg.cpu_bmp, cfg->port_cfg.lan_bmp, cfg->port_cfg.wan_bmp,
+            cfg->port_cfg.inner_bmp, cfg->mac_mode, cfg->mac_mode1, cfg->mac_mode2,
+            cfg->phy_id);
+        return rv;
+    }
 /*qca808x_start*/
 
     return rv;
