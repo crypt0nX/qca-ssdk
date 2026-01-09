@@ -115,17 +115,19 @@ _isisc_ip_feature_check(a_uint32_t dev_id)
 	sw_error_t rv;
 	a_uint32_t entry = 0;
 
-	HSL_REG_FIELD_GET(rv, dev_id, MASK_CTL, 0, DEVICE_ID,
-			(a_uint8_t *) (&entry), sizeof (a_uint32_t));
-	SW_RTN_ON_ERROR(rv);
+        HSL_REG_FIELD_GET(rv, dev_id, MASK_CTL, 0, DEVICE_ID,
+                        (a_uint8_t *) (&entry), sizeof (a_uint32_t));
+        SW_RTN_ON_ERROR(rv);
 
-	switch (entry) {
-		case S17C_DEVICE_ID:
-		case MHT_DEVICE_ID:
-			return SW_OK;
-		default:
-			return SW_NOT_SUPPORTED;
-	}
+        switch (entry) {
+                case S17C_DEVICE_ID:
+                case MHT_DEVICE_ID:
+                        return SW_OK;
+                default:
+                        SSDK_ERROR("isisc_ip_init: DEVICE_ID 0x%x not supported dev_id:%u return SW_NOT_SUPPORTED\n",
+                                   entry, dev_id);
+                        return SW_NOT_SUPPORTED;
+        }
 }
 
 static sw_error_t

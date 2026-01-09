@@ -623,7 +623,11 @@ static void ssdk_dt_parse_scheduler_cfg(a_uint32_t dev_id, struct device_node *s
 static struct device_node *ssdk_dt_get_mdio_node(a_uint32_t dev_id)
 {
 	struct device_node *mdio_node = NULL;
-	hsl_reg_mode reg_mode = ssdk_switch_reg_access_mode_get(dev_id);
+/*
+ * Use the runtime register access mode (local or virtual) so we bind the
+ * correct MDIO bus for the current device instead of assuming local bus.
+ */
+hsl_reg_mode reg_mode = ssdk_switch_reg_access_mode_get(dev_id);
 
 	if (reg_mode == HSL_REG_LOCAL_BUS) {
 		mdio_node = of_find_compatible_node(NULL, NULL, "qcom,ipq40xx-mdio");
@@ -675,9 +679,14 @@ static sw_error_t ssdk_dt_parse_phy_info(struct device_node *switch_node, a_uint
 		if (!mdio_node)
 			mdio_node = ssdk_dt_get_mdio_node(dev_id);
 
-		if (mdio_node)
-		{
-			ssdk_miibus_add(dev_id, of_mdio_find_bus(mdio_node), &miibus_index);
+                if (mdio_node)
+                {
+                        struct mii_bus *mdio_bus = of_mdio_find_bus(mdio_node);
+
+                        if (!mdio_bus)
+                                return -EPROBE_DEFER;
+
+                        ssdk_miibus_add(dev_id, mdio_bus, &miibus_index);
 			phy_reset_gpio = of_get_named_gpio(mdio_node, "phy-reset-gpio",
 				SSDK_PHY_RESET_GPIO_INDEX);
 			if(phy_reset_gpio > 0)
@@ -828,17 +837,21 @@ ssdk_dt_parse_default_mdio_bus(struct device_node *switch_node, a_uint32_t dev_i
 {
 	struct device_node *mdio_node = NULL;
 	struct platform_device *mdio_plat = NULL;
-	hsl_reg_mode reg_mode = HSL_REG_LOCAL_BUS;
+        hsl_reg_mode reg_mode = ssdk_switch_reg_access_mode_get(dev_id);
 	a_uint32_t miibus_index = 0;
 	sw_error_t rv = SW_OK;
 
-	if (switch_node) {
-		mdio_node = of_parse_phandle(switch_node, "mdio-bus", 0);
-		if (mdio_node) {
-			return ssdk_miibus_add(dev_id, of_mdio_find_bus(mdio_node),
-				&miibus_index);
-		}
-	}
+        if (switch_node) {
+                mdio_node = of_parse_phandle(switch_node, "mdio-bus", 0);
+                if (mdio_node) {
+                        struct mii_bus *mdio_bus = of_mdio_find_bus(mdio_node);
+
+                        if (!mdio_bus)
+                                return -EPROBE_DEFER;
+
+                        return ssdk_miibus_add(dev_id, mdio_bus, &miibus_index);
+                }
+        }
 
 	mdio_node = ssdk_dt_get_mdio_node(dev_id);
 	if (!mdio_node) {
@@ -852,7 +865,7 @@ ssdk_dt_parse_default_mdio_bus(struct device_node *switch_node, a_uint32_t dev_i
 		return SW_NOT_FOUND;
 	}
 
-	if(reg_mode == HSL_REG_LOCAL_BUS) {
+        if(reg_mode == HSL_REG_LOCAL_BUS) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0))
 		rv = ssdk_miibus_add(dev_id, dev_get_drvdata(&mdio_plat->dev), &miibus_index);
 #else
@@ -965,15 +978,18 @@ ssdk_dt_parse_interrupt(a_uint32_t dev_id, struct device_node *switch_node)
 	if(of_property_read_string(switch_node, "fdb_sync", &fdb_sync))
 		priv->fdb_sync = FDB_SYNC_DIS;
 	else {
-		if(!strcmp(fdb_sync, "disable"))
-			priv->fdb_sync = FDB_SYNC_DIS;
-		else if(!strcmp(fdb_sync, "interrupt"))
-			priv->fdb_sync = FDB_SYNC_INTR;
-		else if(!strcmp(fdb_sync, "polling"))
-			priv->fdb_sync = FDB_SYNC_POLLING;
-		else
-			return SW_NOT_SUPPORTED;
-	}
+                if(!strcmp(fdb_sync, "disable"))
+                        priv->fdb_sync = FDB_SYNC_DIS;
+                else if(!strcmp(fdb_sync, "interrupt"))
+                        priv->fdb_sync = FDB_SYNC_INTR;
+                else if(!strcmp(fdb_sync, "polling"))
+                        priv->fdb_sync = FDB_SYNC_POLLING;
+                else {
+                        SSDK_ERROR("ssdk_dt_parse: fdb_sync 配置不支持: %s dev_id:%u\n",
+                                   fdb_sync, dev_id);
+                        return SW_NOT_SUPPORTED;
+                }
+        }
 
 	return SW_OK;
 }

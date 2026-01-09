@@ -471,7 +471,7 @@ a_uint32_t qca_mii_read(a_uint32_t dev_id, a_uint32_t reg);
 void qca_mii_write(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t val);
 int qca_mii_update(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t mask, a_uint32_t val);
 
-a_uint32_t __qca_mii_read(a_uint32_t dev_id, a_uint32_t reg);
+sw_error_t __qca_mii_read(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t *val);
 void __qca_mii_write(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t val);
 int __qca_mii_update(a_uint32_t dev_id, a_uint32_t reg, a_uint32_t mask, a_uint32_t val);
 

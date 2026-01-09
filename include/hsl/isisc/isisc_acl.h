@@ -37,17 +37,26 @@ extern "C" {
 #define ISISC_ACL_INIT(rv, dev_id) \
     { \
         rv = isisc_acl_init(dev_id); \
+        if (rv == SW_NOT_SUPPORTED) { \
+            SSDK_ERROR("isisc_acl_init 返回 SW_NOT_SUPPORTED dev_id:%u\n", dev_id); \
+        } \
         SW_RTN_ON_ERROR(rv); \
     }
 
 #define ISISC_ACL_RESET(rv, dev_id) \
     { \
         rv = isisc_acl_reset(dev_id); \
+        if (rv == SW_NOT_SUPPORTED) { \
+            SSDK_ERROR("isisc_acl_reset 返回 SW_NOT_SUPPORTED dev_id:%u\n", dev_id); \
+        } \
         SW_RTN_ON_ERROR(rv); \
     }
 #define ISISC_ACL_CLEANUP(rv, dev_id) \
     { \
         rv = isisc_acl_cleanup(dev_id); \
+        if (rv == SW_NOT_SUPPORTED) { \
+            SSDK_ERROR("isisc_acl_cleanup 返回 SW_NOT_SUPPORTED dev_id:%u\n", dev_id); \
+        } \
         SW_RTN_ON_ERROR(rv); \
     }
 #else

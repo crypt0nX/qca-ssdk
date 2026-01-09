@@ -1475,15 +1475,16 @@ _ssdk_mac_sw_sync_chip_check(struct qca_phy_priv *priv)
 {
 	sw_error_t rv = SW_OK;
 
-	switch (priv->version) {
-		case QCA_VER_HPPE:
-		case QCA_VER_SCOMPHY:
-		case QCA_VER_APPE:
-			break;
-		default:
-			SSDK_DEBUG("Unsupported chip version %d\n", priv->version);
-			rv = SW_NOT_SUPPORTED;
-	}
+        switch (priv->version) {
+                case QCA_VER_HPPE:
+                case QCA_VER_SCOMPHY:
+                case QCA_VER_APPE:
+                        break;
+                default:
+                        SSDK_ERROR("MAC SW sync 不支持的芯片版本:%d (dev_id:%u)\n",
+                                   priv->version, priv->device_id);
+                        rv = SW_NOT_SUPPORTED;
+        }
 
 	return rv;
 }
@@ -1495,10 +1496,12 @@ ssdk_mac_sw_sync_work_stop(a_uint32_t dev_id)
 	struct qca_phy_priv *priv = ssdk_phy_priv_data_get(dev_id);
 	SW_RTN_ON_NULL(priv);
 
-	if (ssdk_is_emulation(priv->device_id))
-	{
-		return SW_NOT_SUPPORTED;
-	}
+        if (ssdk_is_emulation(priv->device_id))
+        {
+                SSDK_ERROR("ssdk_mac_sw_sync_work_stop: 仿真环境不支持 SW sync dev_id:%u device_id:%u\n",
+                           dev_id, priv->device_id);
+                return SW_NOT_SUPPORTED;
+        }
 	rv = _ssdk_mac_sw_sync_chip_check(priv);
 	SW_RTN_ON_ERROR(rv);
 
@@ -1516,18 +1519,20 @@ ssdk_mac_sw_sync_work_start(a_uint32_t dev_id)
 	struct qca_phy_priv *priv = ssdk_phy_priv_data_get(dev_id);
 	SW_RTN_ON_NULL(priv);
 
-	if (ssdk_is_emulation(priv->device_id))
-	{
-		for (port_id = SSDK_PHYSICAL_PORT1; port_id < SSDK_PHYSICAL_PORT7; port_id++)
-		{ /* enable mac for rumi ports */
-			if (SW_IS_PBMP_MEMBER(qca_ssdk_port_bmp_get(dev_id), port_id))
-			{
-				fal_port_txmac_status_set(dev_id, port_id, A_TRUE);
-				fal_port_rxmac_status_set(dev_id, port_id, A_TRUE);
-			}
-		}
-		return SW_NOT_SUPPORTED;
-	}
+        if (ssdk_is_emulation(priv->device_id))
+        {
+                for (port_id = SSDK_PHYSICAL_PORT1; port_id < SSDK_PHYSICAL_PORT7; port_id++)
+                { /* enable mac for rumi ports */
+                        if (SW_IS_PBMP_MEMBER(qca_ssdk_port_bmp_get(dev_id), port_id))
+                        {
+                                fal_port_txmac_status_set(dev_id, port_id, A_TRUE);
+                                fal_port_rxmac_status_set(dev_id, port_id, A_TRUE);
+                        }
+                }
+                SSDK_ERROR("ssdk_mac_sw_sync_work_start: 仿真环境不支持 SW sync dev_id:%u device_id:%u\n",
+                           dev_id, priv->device_id);
+                return SW_NOT_SUPPORTED;
+        }
 
 	rv = _ssdk_mac_sw_sync_chip_check(priv);
 	SW_RTN_ON_ERROR(rv);
